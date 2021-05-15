@@ -1,3 +1,10 @@
+/*Disclaimer: Code is open for using, if you using same code structure and mechanics, put my initials
+The concept of code was taken https://randomnerdtutorials.com/esp32-servo-motor-web-server-arduino-ide/
+*This code was modified by Abdrakhim Sanzhar
+*
+*
+*/
+
 // WiFi үшін кітапхана жүктейміз:
 #include <WiFi.h>
 #include <Servo.h>
