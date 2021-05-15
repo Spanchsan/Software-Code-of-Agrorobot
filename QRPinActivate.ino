@@ -1,3 +1,8 @@
+/*Disclaimer: The main structure if code was taken from example of used Library(ESP32QRCodeReader)
+The code was modified by Abdrakhim Sanzhar
+
+
+*/
 #include <Arduino.h>
 #include <ESP32QRCodeReader.h>
 
