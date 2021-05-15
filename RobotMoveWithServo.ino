@@ -5,32 +5,33 @@ The concept of code was taken https://randomnerdtutorials.com/esp32-servo-motor-
 *
 */
 
-// WiFi үшін кітапхана жүктейміз:
+//Connecting libraries
 #include <WiFi.h>
 #include <Servo.h>
 
-// төменде SSID және Wi-Fi желіміз үшін құпия сөзді енгіземіз: 
-const char* ssid     = "spanch";
-const char* password = "sanzhik2006";
-// сервердің объектісін құраймыз және «80» портын меншіктейміз
+// Input YOUR SSID and PASSWORD of WIFI
+const char* ssid     = "******";
+const char* password = "******";
+// Adjusting server to 80 port for HTTP requests
 WiFiServer server(80);
-// HTTP-сұранысын сақтау үшін айнымалы :
+//The value that save HTTP requests
 String header;
-// мотор 1:
+// First motor
 int motor1Pin1 = 27; 
 int motor1Pin2 = 26; 
 int enable1Pin = 14; 
 
-// мотор 2:
+// Second motor
 int motor2Pin1 = 33; 
 int motor2Pin2 = 25; 
 int enable2Pin = 32;
 
-// кең импульсты модуляция (КИМ) қасиеттері үшін айнымалылар:
+// Adjusting values of PWM channel of motor
 const int freq = 30000;
 const int pwmChannel = 0;
 const int resolution = 8;
 int dutyCycle = 0;
+//Initialisating Servos, if you want you can decrease or increase the counts of servos
 Servo servoUD;
 Servo servoLR;
 Servo servoClaw1;
@@ -76,7 +77,8 @@ int pos2 = 0;
 
 void setup() {
   Serial.begin(115200);
-
+  
+  //Attaching Servos to servo
   servoUD.attach(servoUDPin , 3);
   servoLR.attach(servoLRPin , 2);
   servoClaw1.attach(servoClaw2, 4);
@@ -84,26 +86,24 @@ void setup() {
   servoCamLR.attach(servoCamLRPin, 6);
   servoCamUD.attach(servoCamUDPin, 7);
 
-  // «OUTPUT» режиміндегі мотор контактілерін қосамыз  
+  // Make motorPins to OUTPUT
   pinMode(motor1Pin1, OUTPUT);
   pinMode(motor1Pin2, OUTPUT);
   pinMode(motor2Pin1, OUTPUT);
   pinMode(motor2Pin2, OUTPUT);
 
-  // КИМ – каналының баптауларын береміз: 
+  // Setuping PWM channel
   ledcSetup(pwmChannel, freq, resolution);
   
-  // КИМ-канал 0-ді ENA және  ENB контактілеріне қосамыз, 
-  // яғни,   GPIO-контактісіне моторлардың айналу жылдамдығын басқару үшін :
+  //Attaching PWM pins of motors to our channel
   ledcAttachPin(enable1Pin, pwmChannel);
   ledcAttachPin(enable2Pin, pwmChannel);
 
-  // ENA және ENB – ға контактілер береміз 
-  // «0» толтыру коэффициентімен КИМ – сигнал:
+  //Writing the value to channel it all for both motors(in default case: 0 speed)
   ledcWrite(pwmChannel, dutyCycle);
 
   
-  // жоғарыда көрсетілген SSID және құпиясөз арқылы Wi-Fi желіге қосыламыз:
+  // Connecting to WIFI
   Serial.print("Connecting to ");  //  "Қосыламыз "
   Serial.println(ssid);
   WiFi.begin(ssid, password);
@@ -111,110 +111,100 @@ void setup() {
     delay(500);
     Serial.print(".");
   }
-  // монитор портында басып шығарамыз
-  // локальды IP-мекенжай және веб-серверді жүктейміз: 
+ //Your ESP32 local ip address
   Serial.println("");
-  Serial.println("WiFi connected.");  //  "Wi-Fi желіге қосылдық"
-  Serial.println("IP address: ");  //  "IP-мекенжай: "
+  Serial.println("WiFi connected.");  
+  Serial.println("IP address: ");  
   Serial.println(WiFi.localIP());
   server.begin();
 }
 
 void loop(){
-  WiFiClient client = server.available();  // Келіп түсіп жатқан клиенттерді 
-                                           // қабылдау сатысы
+  WiFiClient client = server.available();  //Check client for joining in site
 
-  if (client) {                            // Егер жаңа клиент 
-                                         // қосылса,
-    Serial.println("New Client.");         // мына жайлы хабарламаны  
-                                           // монитор портына шығарамыз.
-    String currentLine = "";               // Клиенттен келіп түскен мәліметті 
-                                           // сақтау үшін 
-                                           // жол құрамыз.
-    while (client.connected() ) {           // while() циклін іске қосамыз, 
-                                         // клиент қосулы кезде
-                                           // жұмыс жасайтын 
-      if (client.available()) {            // Клиенттің байты болса,
-                                           // оқуға келетін 
+  if (client) {                            // If yes
+                                         
+    Serial.println("New Client.");         //Writing in port about joining new Client
+                                          
+    String currentLine = "";              
                                            
-        char c = client.read();            // байтты санаймыз, 
-        Serial.write(c);                   // және оны монитор  
-                                           // портында басып шығарамыз.
-        header += c;
-        if (c == '\n') {                   // Егер алынған  байт – 
-                                           // жаңа алынған жолдың символы болса.
-          // Егер біз жаңа жолдың екі бірдей символын алар болсақ,
-          // демек, бұл ағымдағы жол бос екендігін көрсетеді. 
-          // Бұл клиенттің HTTP- сұранысының соңы, сондықтан оған жауап жібереміз:
+                                           
+    while (client.connected() ) {           // while() client connected 
+                                        
+                                           
+      if (client.available()) {           //If client are available for work
+                                          
+                                           
+        char c = client.read();            //Read the HTTP request from client
+        Serial.write(c);                    
+                                          
+        header += c; //Write the HTTP request to our value
+        if (c == '\n') {                   
           if (currentLine.length() == 0) {
-            // HTTP- тақырыпшалар әрқашан жауап кодының жауабымен басталады 
-            // (мысалы,  «HTTP/1.1 200 OK»),
-            // контент типі жайлы ақпарат, 
-            // себебі, клиент өзінің не алып жатқанын көруі керек 
-            // Осыдан кейін бос жол жабамыз: 
+            //Send the message that out all operation OK
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/html");
             client.println("Connection: close");
-                       //  "Байланыс: өшірулі"
+                      
             client.println();
             
-            // Веб парақшада қандай батырмалар басылғанына байланысты, 
-            //  бұл код мотор контактілерімен басқаруға арналады:
+            //Checking value to presense of comands
+            //P.S. what is doing if, it is check the position of given command if it has position it tell us that it was called 
             if (header.indexOf("GET /forward") >= 0) {
-              Serial.println("Forward");  //  "Алға"
+              Serial.println("Forward");  
               digitalWrite(motor1Pin1, LOW);
               digitalWrite(motor1Pin2, HIGH); 
               digitalWrite(motor2Pin1, LOW);
               digitalWrite(motor2Pin2, HIGH);
             }  else if (header.indexOf("GET /left") >= 0) {
-              Serial.println("Left");  //  "Влево"
+              Serial.println("Left"); 
               digitalWrite(motor1Pin1, LOW); 
               digitalWrite(motor1Pin2, LOW); 
               digitalWrite(motor2Pin1, LOW);
               digitalWrite(motor2Pin2, HIGH);
             }  else if (header.indexOf("GET /stop") >= 0) {
-              Serial.println("Stop");  //  "Стоп"
+              Serial.println("Stop");  
               digitalWrite(motor1Pin1, LOW); 
               digitalWrite(motor1Pin2, LOW); 
               digitalWrite(motor2Pin1, LOW);
               digitalWrite(motor2Pin2, LOW);             
             } else if (header.indexOf("GET /right") >= 0) {
-              Serial.println("Right");  //  "Вправо"
+              Serial.println("Right");  
               digitalWrite(motor1Pin1, LOW); 
               digitalWrite(motor1Pin2, HIGH); 
               digitalWrite(motor2Pin1, LOW);
               digitalWrite(motor2Pin2, LOW);    
             } else if (header.indexOf("GET /reverse") >= 0) {
-              Serial.println("Reverse");  //  "Назад"
+              Serial.println("Reverse");  
               digitalWrite(motor1Pin1, HIGH);
               digitalWrite(motor1Pin2, LOW); 
               digitalWrite(motor2Pin1, HIGH);
               digitalWrite(motor2Pin2, LOW);          
             }
-            // Веб-парақшаны көрсетеміз:
+            // Setup HTML Page
             client.println("<!DOCTYPE HTML><html>");
             client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
             client.println("<link rel=\"icon\" href=\"data:,\">");
-            // CSS  арқылы батырмалар стилін береміз
-            // Өз бетіңізбен тәжірибе жасап көріңіз.
-            // «background-color»  атрибуттарымен және «font-size», 
-            // өз қалауыңыз бойынша батырмаларды әсемдеу үшін: 
+            //Our CSS page for style buttons and sliders, can change if you want
             client.println("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}");
             client.println(".button { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; background-color: #4CAF50;");
             client.println("border: none; color: white; padding: 12px 28px; text-decoration: none; font-size: 26px; margin: 1px; cursor: pointer;}");
             client.println(".button2 {background-color: #555555;}</style>");
             client.println("<script src=\"https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js\"></script></head>");
             
-            // веб-парақша:
+            //You main part of HTML apge
             client.println("<body>");
+            //Setuping buttons
             client.println("<p><button class=\"button\" onclick=\"moveForward()\">FORWARD</button></p>");
             client.println("<div style=\"clear: both;\"><p><button class=\"button\" onclick=\"moveLeft()\">LEFT </button>");
             client.println("<button class=\"button\" onclick=\"moveRight()\">RIGHT</button>");
             client.println("<button class=\"button button2\" onclick=\"stopRobot()\">STOP</button></p></div>");
             client.println("<p><button class=\"button\" onclick=\"moveReverse()\">REVERSE</button></p>");
-                    
-            client.println("<p><center><iframe src=\"http://192.168.43.51/\" width=\"400\" height=\"300\"></iframe></cemter></p>");
-            
+                    //This iframe command needed, if you want in your site the other site you use this command
+            //In my case i used this command for inputing in my site the CameraWebServer
+            client.println("<p><center><iframe src=\"YOUR IP\" width=\"400\" height=\"300\"></iframe></cemter></p>");
+            //Setuping Sliders of Servos
+            //You can change the texts under sliders if you want
             client.println("<p><input type=\"range\" min=\"0\" max=\"100\" step=\"2\" class=\"slider\" id=\"motorSlider\" onchange=\"motorSpeed(this.value)\" value=\"" + valueString + "\"/></p>");
             client.println("<p>Motor Speed: <span id=\"motorSpeed\"></span></p>");    
             client.println("<p><input type=\"range\" min=\"0\" max=\"90\" step=\"2\" class=\"slider\" id=\"servoUD\" onchange=\"servoUDRotation(this.value)\" valueUD=\"" + valueUD + "\"/></p>");
@@ -229,7 +219,15 @@ void loop(){
             client.println("<p>Cam left and right angle degree: <span id=\"servoCamLRRotation\"></span></p>");
             client.println("<p><input type=\"range\" min=\"0\" max=\"180\" step=\"2\" class=\"slider\" id=\"servoCamUD\" onchange=\"servoCamUDRotation(this.value)\" valueCamUD=\"" + valueCamUD + "\"/></p>");
             client.println("<p>Cam up and down angle degree: <span id=\"servoCamUDRotation\"></span></p>");
+            //Setupng functions of buttons and sliders
+            /*
+            To adjust Slider there is example
+            client.println("var YOUR VALUE SLIDER NAME = document.getElementById(\"YOUR SLIDER ID");");
+            client.println("var YOUR VALUE OF SLIDER = document.getElementById(\"YOUR TEXT ID\"); YOUR TEXT POS.innerHTML = YOUR VALUE OF SLIDER.value;"); This line not neccesary
+            client.println("YOUR VALUE SLIDER NAME.oninput = function() { YOUR VALUE SLIDER NAME.value = this.value; YOUR TEXT ID.innerHTML = this.value;(not neccesary)}");
+            client.println("function YOUR FUNCTION NAME( YOUR VALUE NAME) { $.get(\"/?VALUE NAME TO PROCESS=\" + YOUR VALUE NAME + \"THE END CODE(In default case was &)\"); {Connection: close};} ");
             
+            */
             client.println("<script>$.ajaxSetup({timeout:1000});");
              client.println("function moveForward() { $.get(\"/forward\"); {Connection: close};}");
             client.println("function moveLeft() { $.get(\"/left\"); {Connection: close};}");
@@ -274,14 +272,13 @@ void loop(){
            
             client.println("</body></html>");
             
-            // HTTP-сұранысының мысалы: «GET /?value=100& HTTP/1.1»;
-            // Бұл КИМ – ді 100% толтыруға коэффициент береді (255): 
+            //The proccesing the comands that gave the slider, the comands setup you input in your function like:/?value name=SOME VALUE &(END CODE)
 
              if(header.indexOf("GET /?value=")>=0) {
               pos1 = header.indexOf('=');
               pos2 = header.indexOf('&');
               valueString = header.substring(pos1+1, pos2);
-              // Мотор жылдамдығын береміз: 
+              //Adjusting Motor Speed
               if (valueString == "0") {
                 ledcWrite(pwmChannel, 0);
                 digitalWrite(motor1Pin1, LOW); 
@@ -337,24 +334,23 @@ void loop(){
                 Serial.println(valueCamUD.toInt());
                 delay(valueCamUD.toInt() * 15);
             }
-            // HTTP- жауап тағы бір бос жолмен аяқталады 
+           
             client.println();
-            // while() циклынан шығамыз:
+            
             break;
-          } else {  // Егер жаңа жолдың символын алған болсаңыз, 
-                    // «currentLine» айнымалысын тазалаймыз:
+          } else { 
             currentLine = "";
           }
-        } else if (c != '\r') {  // Егер тағы бірдеңе алған болсаңыз,  
-                                 // каретка қайтару символынан бөлек... 
-          currentLine += c;      // ... онда осы мәліметті енгіземіз 
-                                 // «currentLine» айнымалысының соңына 
+        } else if (c != '\r') { 
+          //If line is not over just adjusting HTTP request to current line               
+          currentLine += c;      
+                                
         }
       }
     }
-    // «header» айнымалысын тазалаймыз:
+    // Cleant the header value
     header = "";
-    // Байланысты өшіреміз:
+    //Stoping the server
     client.stop();
     Serial.println("Client disconnected.");  // "Клиент өшірулі."
     Serial.println("");
